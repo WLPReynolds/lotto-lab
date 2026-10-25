@@ -234,13 +234,21 @@ test('animation drops balls, lands them in bins and resets when a bin fills', ()
   const a = loadApp();
   a.get("state.view='story'; render(); bm.run++;"); // stop the real loop; drive it by hand
   const tick = a.get('bmTick');
-  let t = 1000;
-  for (let i = 0; i < 4000; i++) { assert.equal(tick(t), true); t += 16; }
-  const s = a.get('bm');
-  assert.ok(s.n > 100, 'many balls dropped');
-  assert.ok(s.settled.length > 0 || s.fade, 'balls settled or a reset is under way');
-  assert.ok(s.counts.every(c => c <= a.get('BM.max') + 9), 'stacks stay bounded');
-  assert.ok(s.settled.every(b => b.h < a.get('BM.max') + 9));
+  const max = a.get('BM.max');
+  let t = 1000, sawSettled = 0, resets = 0, wasFading = false, tallest = 0;
+  for (let i = 0; i < 4000; i++) {
+    assert.equal(tick(t), true); t += 16;
+    const s = a.get('bm');
+    sawSettled = Math.max(sawSettled, s.settled.length);
+    if (s.fade && !wasFading) resets++;
+    wasFading = !!s.fade;
+    for (const b of s.settled) tallest = Math.max(tallest, b.h);
+  }
+  assert.ok(a.get('bm.n') > 100, 'many balls dropped');
+  assert.ok(sawSettled > 20, `balls piled up (${sawSettled})`);
+  assert.ok(resets >= 1, 'the pile reset at least once');
+  // A reset starts when a bin reaches max; balls already falling can top it up a little, never far
+  assert.ok(tallest < max + 9, `stacks stay bounded (${tallest})`);
   // leaving the page stops the loop
   a.get("state.view='latest'; render();");
   assert.equal(tick(t), false);
