@@ -16,3 +16,14 @@ test('version matches in package.json, src/app.js, sw.js and index.html', () => 
 test('service worker precaches the app script', () => {
   assert.match(read('sw.js'), /'src\/app\.js'/);
 });
+
+test('every file the service worker precaches exists', () => {
+  const list = /const SHELL = \[([^\]]+)\]/.exec(read('sw.js'))[1].match(/'([^']+)'/g).map(s => s.slice(1, -1));
+  for (const f of list) if (f !== './') assert.ok(fs.existsSync(path.join(__dirname, '..', f)), `missing ${f}`);
+});
+
+test('manifest icons and page icon links point at real files', () => {
+  for (const i of JSON.parse(read('manifest.json')).icons) assert.ok(fs.existsSync(path.join(__dirname, '..', i.src)), `missing ${i.src}`);
+  for (const [, f] of read('index.html').matchAll(/<link rel="(?:icon|apple-touch-icon|manifest)" href="([^"]+)"/g))
+    assert.ok(fs.existsSync(path.join(__dirname, '..', f)), `missing ${f}`);
+});
